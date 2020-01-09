@@ -1,0 +1,20 @@
+apiVersion: app.ci.com/v1
+kind: Exporter
+metadata:
+  name: exporter-sample
+spec:
+  # Add fields here
+  deploy:
+    selector:
+      matchLabels:
+        app: exporter-sample
+    template:
+      metadata:
+        name: sample
+        labels:
+          app: exporter-sample
+      spec:
+        containers:
+          - name: test
+            image: nginx:latest
+            imagePullPolicy: IfNotPresent

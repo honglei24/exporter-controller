@@ -1,0 +1,24 @@
+# permissions for end users to edit exporters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: exporter-editor-role
+rules:
+- apiGroups:
+  - app.ci.com
+  resources:
+  - exporters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - app.ci.com
+  resources:
+  - exporters/status
+  verbs:
+  - get

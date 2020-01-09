@@ -1,0 +1,20 @@
+# permissions for end users to view exporters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: exporter-viewer-role
+rules:
+- apiGroups:
+  - app.ci.com
+  resources:
+  - exporters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - app.ci.com
+  resources:
+  - exporters/status
+  verbs:
+  - get

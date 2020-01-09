@@ -1,0 +1,7 @@
+domain: ci.com
+repo: exporter-controller
+resources:
+- group: app
+  kind: Exporter
+  version: v1
+version: "2"
