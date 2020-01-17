@@ -1,0 +1,24 @@
+# permissions for end users to edit prometheus.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-editor-role
+rules:
+- apiGroups:
+  - app.ci.com
+  resources:
+  - prometheus
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - app.ci.com
+  resources:
+  - prometheus/status
+  verbs:
+  - get

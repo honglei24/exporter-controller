@@ -1,0 +1,28 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+rule_files:
+  - 'prometheus.rules.yml'
+  # - "first.rules"
+  # - "second.rules"
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: prometheus-crd-test
+    basic_auth:
+      username: admin
+      password: 123456
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: myexporter
+    basic_auth:
+      username: admin
+      password: 123456
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['192.168.2.8:32000']
+        labels:
+          group: 'production'

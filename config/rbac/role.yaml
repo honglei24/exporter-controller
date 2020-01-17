@@ -24,7 +24,7 @@ rules:
 - apiGroups:
   - app.ci.com
   resources:
-  - exporters
+  - prometheus
   verbs:
   - create
   - delete
@@ -36,7 +36,7 @@ rules:
 - apiGroups:
   - app.ci.com
   resources:
-  - exporters/status
+  - prometheus/status
   verbs:
   - get
   - patch

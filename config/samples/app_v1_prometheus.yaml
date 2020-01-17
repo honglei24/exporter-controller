@@ -1,0 +1,7 @@
+apiVersion: app.ci.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus-sample
+spec:
+  # Add fields here
+  config:

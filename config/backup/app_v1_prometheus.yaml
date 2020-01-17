@@ -1,0 +1,17 @@
+apiVersion: app.ci.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus-sample
+spec:
+  # Add fields here
+  deploy:
+    selector:
+      matchLabels:
+        app: prometheus-sample
+    template:
+      metadata:
+        name: sample
+        labels:
+          app: prometheus-sample
+      spec:
+        containers: []

@@ -19,10 +19,9 @@ package controllers
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"context"
 
@@ -63,48 +62,39 @@ func (r *ExporterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if instance.DeletionTimestamp != nil {
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !containsString(instance.ObjectMeta.Finalizers, myFinalizerName) {
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(ctx, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
 		log.Info("Get deleted App, clean up subResources.")
 
-		// 如果不为 0 ，则对象处于删除中
 		if containsString(instance.ObjectMeta.Finalizers, myFinalizerName) {
-			// 如果存在 finalizer 且与上述声明的 finalizer 匹配，那么执行对应 hook 逻辑
 			if err := r.deleteExternalResources(instance); err != nil {
-				// 如果删除失败，则直接返回对应 err，controller 会自动执行重试逻辑
 				return ctrl.Result{}, err
 			}
 
-			// 如果对应 hook 执行成功，那么清空 finalizers， k8s 删除对应资源
 			instance.ObjectMeta.Finalizers = removeString(instance.ObjectMeta.Finalizers, myFinalizerName)
-			if err := r.Update(context.Background(), instance); err != nil {
+			if err := r.Update(ctx, instance); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-
-		return ctrl.Result{}, nil
 	}
 
-	if !containsString(instance.ObjectMeta.Finalizers, myFinalizerName) {
-		instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, myFinalizerName)
-		if err := r.Update(context.Background(), instance); err != nil {
-			return ctrl.Result{}, err
-		}
+	found := &appsv1.Deployment{}
+	err = r.Get(ctx, req.NamespacedName, found)
+	if err != nil {
+		// Object not found, return.
+		// Created objects are automatically garbage collected.
+		// For additional cleanup logic use finalizers.
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	deploy := getDeployFromExporter(instance)
-
-	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found)
-
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Old Deployment NotFound and Creating new one", "namespace", deploy.Namespace, "name", deploy.Name)
-		if err = r.Create(ctx, deploy); err != nil {
-			return ctrl.Result{}, err
-		}
-	} else if err != nil {
-		log.Error(err, "Get Deployment info Error", "namespace", deploy.Namespace, "name", deploy.Name)
-		return ctrl.Result{}, err
-	} else if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
 		// Update the found object and write the result back if there are any changes
 		found.Spec = deploy.Spec
 		log.Info("Old deployment changed and Updating Deployment to reconcile", "namespace", deploy.Namespace, "name", deploy.Name)
@@ -144,7 +134,7 @@ func getDeployFromExporter(instance *appv1.Exporter) *appsv1.Deployment {
 	deploySpec.Selector = &metav1.LabelSelector{MatchLabels: labels}
 
 	sidecar := corev1.Container{
-		Name:            "nginx",
+		Name:            "sidecar-nginx",
 		Image:           "nginx:latest",
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		VolumeMounts: []corev1.VolumeMount{
@@ -170,12 +160,14 @@ func getDeployFromExporter(instance *appv1.Exporter) *appsv1.Deployment {
 	setDefaultValue(deploySpec.Template.ObjectMeta.Annotations, "prometheus.io/path", "/metrics")
 	setDefaultValue(deploySpec.Template.ObjectMeta.Annotations, "prometheus.io/port", "8081")
 
+	setDefaultValue(deploySpec.Template.ObjectMeta.Annotations, "exporter.app.ci.com", "true")
+
 	deploySpec.Template.Spec.Containers = append(deploySpec.Template.Spec.Containers, sidecar)
 	deploySpec.Template.Spec.Volumes = append(deploySpec.Template.Spec.Volumes, volume)
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-deploy",
+			Name:      "deploy-" + instance.Name,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},

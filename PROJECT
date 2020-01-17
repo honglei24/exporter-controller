@@ -4,4 +4,7 @@ resources:
 - group: app
   kind: Exporter
   version: v1
+- group: app
+  kind: Prometheus
+  version: v1
 version: "2"
