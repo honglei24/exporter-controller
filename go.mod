@@ -6,6 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v38.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
+	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46
 	github.com/go-logr/logr v0.1.0
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0

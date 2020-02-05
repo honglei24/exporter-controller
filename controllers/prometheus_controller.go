@@ -18,14 +18,16 @@ package controllers
 
 import (
 	"context"
-	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
-	prometheus_conf "github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"gopkg.in/yaml.v2"
+	"fmt"
+	//config_util "github.com/prometheus/common/config"
+	//"github.com/prometheus/common/model"
+	//prometheus_conf "github.com/prometheus/prometheus/config"
+	//"github.com/prometheus/prometheus/discovery/targetgroup"
+	//"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"text/template"
 	//"reflect"
 	//"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -74,51 +76,82 @@ func (r *PrometheusReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log.Info("config detail:", "detail", configmap.Data)
-	prom_conf := &prometheus_conf.Config{}
-	_ = prom_conf.GlobalConfig.ScrapeInterval.Set("15s")
-	_ = prom_conf.GlobalConfig.EvaluationInterval.Set("15s")
-	prom_conf.RuleFiles = append(prom_conf.RuleFiles, "prometheus.rules.yml")
-	scrapeConfig := &prometheus_conf.ScrapeConfig{}
-	scrapeConfig.JobName = "test"
-	scrapeConfig.HTTPClientConfig = config_util.HTTPClientConfig{
-		BasicAuth: &config_util.BasicAuth{
-			Username: "admin",
-			Password: "123456",
-		},
+	//log.Info("config detail:", "detail", configmap.Data)
+	pod := &corev1.Pod{}
+	err = r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	scrapeConfig.ServiceDiscoveryConfig.StaticConfigs = []*targetgroup.Group{
-		{
-			Targets: []model.LabelSet{
-				{model.AddressLabel: "192.168.2.8:32000"},
-			},
-			Labels: model.LabelSet{
-				"group": "production",
-			},
-		},
+	value, ok := pod.Annotations["exporter.app.ci.com"]
+	if ok && value == "true" {
+		log.Info("config detail:", "detail", pod.Spec)
+
+		username, _ := pod.Annotations["exporter.app.ci.com/username"]
+		password, _ := pod.Annotations["exporter.app.ci.com/password"]
+		port, _ := pod.Annotations["prometheus.io/port"]
+
+		data := []EntetiesClass{
+			{pod.Name, pod.Status.PodIP, port, username, password},
+			{pod.Name + "_8080", pod.Status.PodIP, "8080", username, password},
+			{"prometheus", "localhost", "9090", username, password},
+		}
+
+		t, err := template.ParseFiles("./prometheus.yml.template")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		resultWriter := &Result{}
+
+		if err := t.Execute(resultWriter, data); err != nil {
+			fmt.Println("There was an error:", err.Error())
+			return ctrl.Result{}, err
+		}
+		//prom_conf := &prometheus_conf.Config{}
+		//_ = prom_conf.GlobalConfig.ScrapeInterval.Set("15s")
+		//_ = prom_conf.GlobalConfig.EvaluationInterval.Set("15s")
+		//prom_conf.RuleFiles = append(prom_conf.RuleFiles, "prometheus.rules.yml")
+		//scrapeConfig := &prometheus_conf.ScrapeConfig{}
+		//scrapeConfig.JobName = "test"
+		//scrapeConfig.HTTPClientConfig = config_util.HTTPClientConfig{
+		//	BasicAuth: &config_util.BasicAuth{
+		//		Username: "admin",
+		//		Password: "123456",
+		//	},
+		//}
+		//scrapeConfig.ServiceDiscoveryConfig.StaticConfigs = []*targetgroup.Group{
+		//	{
+		//		Targets: []model.LabelSet{
+		//			{model.AddressLabel: "192.168.2.8:32000"},
+		//		},
+		//		//Labels: model.LabelSet{
+		//		//	"group": "production",
+		//		//},
+		//	},
+		//}
+		//prom_conf.ScrapeConfigs = append(prom_conf.ScrapeConfigs, scrapeConfig)
+		////log.Info("prometheus.yml detail:", "prometheus_conf", prom_conf)
+		////err = yaml.Unmarshal([]byte(configmap.Data["prometheus.yml"]), prom_conf)
+		////if err != nil {
+		////	return ctrl.Result{}, err
+		////}
+		////log.Info("prometheus.yml detail:", "prom_conf.GlobalConfig", prom_conf.GlobalConfig)
+		////log.Info("prometheus.yml detail:", "prom_conf.ScrapeConfigs", prom_conf.ScrapeConfigs)
+		////log.Info("prometheus.yml detail:", "prom_conf.RuleFiles", prom_conf.RuleFiles)
+		////log.Info("prometheus.yml detail:", "prom_conf", prom_conf.String())
+
+		config_test2 := &corev1.ConfigMap{}
+		config_test2.Namespace = "default"
+		//config_test2.Name = "test"
+		config_test2.Name = "prometheus-for-app"
+		config_test2.Data = make(map[string]string)
+		//config_test2.Data["prometheus.yml"] = prom_conf.String()
+		config_test2.Data["prometheus.yml"] = resultWriter.output
+		//config_test2.Data["alerting_rules.yml"] = "{}"
+		//config_test2.Data["alerts"] = "{}"
+		//config_test2.Data["recording_rules.yml"] = "{}"
+		//config_test2.Data["rules"] = "{}"
+		err = r.Update(ctx, config_test2)
 	}
-	prom_conf.ScrapeConfigs = append(prom_conf.ScrapeConfigs, scrapeConfig)
-	//log.Info("prometheus.yml detail:", "prometheus_conf", prom_conf)
-	//err = yaml.Unmarshal([]byte(configmap.Data["prometheus.yml"]), prom_conf)
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
-	//log.Info("prometheus.yml detail:", "prom_conf.GlobalConfig", prom_conf.GlobalConfig)
-	//log.Info("prometheus.yml detail:", "prom_conf.ScrapeConfigs", prom_conf.ScrapeConfigs)
-	//log.Info("prometheus.yml detail:", "prom_conf.RuleFiles", prom_conf.RuleFiles)
-	//log.Info("prometheus.yml detail:", "prom_conf", prom_conf.String())
-
-	config_test2 := &corev1.ConfigMap{}
-	config_test2.Namespace = "default"
-	config_test2.Name = "test"
-	config_test2.Data = make(map[string]string)
-	config_test2.Data["prometheus.yml"] = prom_conf.String()
-	config_test2.Data["alerting_rules.yml"] = "{}"
-	config_test2.Data["alerts"] = "{}"
-	config_test2.Data["recording_rules.yml"] = "{}"
-	config_test2.Data["rules"] = "{}"
-	err = r.Create(ctx, config_test2)
-
 	//
 	//if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 	//	if !containsString(instance.ObjectMeta.Finalizers, myFinalizerName) {
@@ -171,9 +204,17 @@ func (r *PrometheusReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	return ctrl.Result{}, nil
 }
 
+type EntetiesClass struct {
+	JobName  string
+	Address  string
+	Port     string
+	UserName string
+	Password string
+}
+
 func (r *PrometheusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&appv1.Prometheus{}).
+		For(&appv1.Prometheus{}).For(&corev1.Pod{}).
 		Complete(r)
 }
 

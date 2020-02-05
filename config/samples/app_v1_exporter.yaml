@@ -20,3 +20,6 @@ spec:
             imagePullPolicy: IfNotPresent
             command:
               - "./export"
+  basicAuth:
+    username: "root"
+    password: "root123"

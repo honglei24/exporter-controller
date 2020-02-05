@@ -24,12 +24,18 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type BasicAuthSpec struct {
+	UserName string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 // ExporterSpec defines the desired state of Exporter
 type ExporterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Deploy appsv1.DeploymentSpec `json:"deploy,omitempty"`
+	Deploy    appsv1.DeploymentSpec `json:"deploy,omitempty"`
+	BasicAuth BasicAuthSpec         `json:"basicAuth,omitempty"`
 }
 
 // ExporterStatus defines the observed state of Exporter

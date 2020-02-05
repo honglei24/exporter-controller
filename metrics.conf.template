@@ -1,0 +1,8 @@
+server {
+  listen 0.0.0.0:{{.DestinationPort}};
+  location / {
+    proxy_pass http://localhost:{{.SourcePort}}/;
+    auth_basic "Prometheus";
+    auth_basic_user_file "/etc/nginx/conf.d/htpasswd";
+  }
+}
